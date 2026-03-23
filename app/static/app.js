@@ -91,6 +91,7 @@ function getQueryLang() {
 let currentLang = getQueryLang() || detectBrowserLang();
 let allDevices = [];
 let currentSearchQuery = "";
+let renderedDeviceCards = [];
 
 function t(key) {
   return I18N[currentLang][key] || I18N.en[key] || key;
@@ -325,23 +326,54 @@ function createDeviceCard(device) {
   quick.className = "quick-actions";
   card.appendChild(quick);
 
-  const form = document.createElement("form");
-  form.className = "cmd-form";
-  form.innerHTML = `
-    <label>${t("tuyaCodeLabel")}</label>
-    <input type="text" name="code" required />
-    <label>${t("jsonValueLabel")}</label>
-    <textarea name="value" required>true</textarea>
-    <button type="submit">${t("sendCommand")}</button>
-    <pre class="result"></pre>
-  `;
-  card.appendChild(form);
+  const result = document.createElement("pre");
+  result.className = "result";
+  card.appendChild(result);
 
-  const result = form.querySelector(".result");
+  let form = null;
   const loading = document.createElement("p");
   loading.className = "meta";
   loading.textContent = t("loading");
   card.appendChild(loading);
+
+  function ensureCommandForm() {
+    if (form) return form;
+    form = document.createElement("form");
+    form.className = "cmd-form";
+    form.innerHTML = `
+      <label>${t("tuyaCodeLabel")}</label>
+      <input type="text" name="code" required />
+      <label>${t("jsonValueLabel")}</label>
+      <textarea name="value" required>true</textarea>
+      <button type="submit">${t("sendCommand")}</button>
+    `;
+    card.insertBefore(form, result);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const code = form.code.value.trim();
+      const rawValue = form.value.value.trim();
+      if (!code) return;
+
+      let parsedValue;
+      try {
+        parsedValue = JSON.parse(rawValue);
+      } catch (_e) {
+        result.textContent = t("invalidJson");
+        return;
+      }
+
+      try {
+        const commands = [{ code, value: parsedValue }];
+        await sendCommands(device.id, commands, result);
+        applyCommandsToLocalState(commands);
+      } catch (e) {
+        result.textContent = e.message;
+      }
+    });
+
+    return form;
+  }
 
   loadCapabilities(device.id)
     .then((capabilities) => {
@@ -372,7 +404,6 @@ function createDeviceCard(device) {
       const isSensorReadOnly = (hasDoorContactReadonly || hasBatteryReadonly) && funcs.length === 0;
 
       if (isSensorReadOnly) {
-        form.classList.add("hidden");
         return;
       }
 
@@ -407,8 +438,6 @@ function createDeviceCard(device) {
           <input class="brightness-slider" type="range" min="0" max="1000" step="1" value="${brightnessValue}" />
         `;
         quick.appendChild(sliderWrap);
-
-        form.classList.add("hidden");
 
         onBtn.addEventListener("click", async () => {
           try {
@@ -458,7 +487,6 @@ function createDeviceCard(device) {
         offBtn.textContent = "OFF";
         quick.appendChild(onBtn);
         quick.appendChild(offBtn);
-        form.classList.add("hidden");
 
         onBtn.addEventListener("click", async () => {
           try {
@@ -495,7 +523,6 @@ function createDeviceCard(device) {
         quick.appendChild(openBtn);
         quick.appendChild(stopBtn);
         quick.appendChild(closeBtn);
-        form.classList.add("hidden");
 
         openBtn.addEventListener("click", async () => {
           try {
@@ -530,9 +557,10 @@ function createDeviceCard(device) {
       }
 
       const first = codes[0];
+      const cmdForm = ensureCommandForm();
       if (first?.code) {
-        form.code.value = first.code;
-        form.value.value = "true";
+        cmdForm.code.value = first.code;
+        cmdForm.value.value = "true";
       }
 
       const switchCode = codes.find((c) => /^switch/.test(c.code))?.code;
@@ -570,29 +598,6 @@ function createDeviceCard(device) {
       loading.remove();
     });
 
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const code = form.code.value.trim();
-    const rawValue = form.value.value.trim();
-    if (!code) return;
-
-    let parsedValue;
-    try {
-      parsedValue = JSON.parse(rawValue);
-    } catch (_e) {
-      result.textContent = t("invalidJson");
-      return;
-    }
-
-    try {
-      const commands = [{ code, value: parsedValue }];
-      await sendCommands(device.id, commands, result);
-      applyCommandsToLocalState(commands);
-    } catch (e) {
-      result.textContent = e.message;
-    }
-  });
-
   return card;
 }
 
@@ -605,6 +610,13 @@ async function loadDevices() {
       throw new Error(data.detail || t("cannotLoadDevices"));
     }
     allDevices = data.devices || [];
+    const container = document.getElementById("devices");
+    container.innerHTML = "";
+    renderedDeviceCards = allDevices.map((device) => {
+      const card = createDeviceCard(device);
+      container.appendChild(card);
+      return { device, card };
+    });
     renderFilteredDevices();
   } catch (error) {
     showError(error.message);
@@ -620,24 +632,43 @@ function normalizeText(value) {
 
 function renderFilteredDevices() {
   const container = document.getElementById("devices");
-  container.innerHTML = "";
+  const emptyStateId = "devices-empty-state";
+  const existingEmptyState = document.getElementById(emptyStateId);
 
   if (allDevices.length === 0) {
-    container.textContent = t("noDevicesFound");
+    container.innerHTML = "";
+    const emptyState = document.createElement("p");
+    emptyState.id = emptyStateId;
+    emptyState.textContent = t("noDevicesFound");
+    container.appendChild(emptyState);
     return;
   }
 
   const normalizedQuery = normalizeText(currentSearchQuery.trim());
-  const filtered = normalizedQuery
-    ? allDevices.filter((device) => normalizeText(device.name).includes(normalizedQuery))
-    : allDevices;
+  let visibleCount = 0;
+  renderedDeviceCards.forEach(({ device, card }) => {
+    const matches =
+      !normalizedQuery || normalizeText(device.name).includes(normalizedQuery);
+    card.classList.toggle("hidden", !matches);
+    if (matches) visibleCount += 1;
+  });
 
-  if (filtered.length === 0) {
-    container.textContent = t("noDevicesMatch");
+  if (visibleCount === 0) {
+    if (!existingEmptyState) {
+      const emptyState = document.createElement("p");
+      emptyState.id = emptyStateId;
+      emptyState.textContent = t("noDevicesMatch");
+      container.appendChild(emptyState);
+    } else {
+      existingEmptyState.textContent = t("noDevicesMatch");
+      existingEmptyState.classList.remove("hidden");
+    }
     return;
   }
 
-  filtered.forEach((device) => container.appendChild(createDeviceCard(device)));
+  if (existingEmptyState) {
+    existingEmptyState.remove();
+  }
 }
 
 function toggleLang() {
