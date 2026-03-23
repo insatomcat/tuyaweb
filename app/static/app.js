@@ -690,4 +690,5 @@ document.getElementById("device-search").addEventListener("input", (event) => {
 document.getElementById("refresh-btn").addEventListener("click", loadDevices);
 document.getElementById("lang-toggle-btn").addEventListener("click", toggleLang);
 updateStaticTexts();
+document.getElementById("device-search").focus();
 loadDevices();
