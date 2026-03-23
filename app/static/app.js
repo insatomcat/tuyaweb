@@ -393,6 +393,7 @@ function createDeviceCard(device) {
 
   async function syncStatusFromDevice() {
     try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       const capabilities = await loadCapabilities(device.id);
       const props = normalizeResult(capabilities.properties);
       const statusItems = normalizeResult(capabilities.status);
