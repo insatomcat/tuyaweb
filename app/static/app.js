@@ -1,3 +1,110 @@
+const I18N = {
+  fr: {
+    title: "Tuya Web Control",
+    refreshDevices: "Rafraichir les equipements",
+    searchPlaceholder: "Rechercher un equipement...",
+    showDetails: "Afficher details",
+    hideDetails: "Masquer details",
+    online: "en ligne",
+    offline: "hors ligne",
+    unknownState: "etat inconnu",
+    unknownCategory: "categorie inconnue",
+    unknownProduct: "produit inconnu",
+    unknownName: "(sans nom)",
+    idLabel: "ID",
+    labels: "Labels",
+    supportedCodes: "Codes supportes",
+    sending: "Envoi...",
+    apiError: "Erreur API",
+    cannotLoadCapabilities: "Impossible de charger les capacites du device",
+    statusCurrent: "Status actuel",
+    unavailable: "indisponible",
+    loading: "Chargement...",
+    noCodeDetected: "Aucun code detecte pour ce device.",
+    tuyaCodeLabel: 'Code Tuya (ex: switch_1, bright_value_v2)',
+    jsonValueLabel: 'Valeur JSON (ex: true, 50, "auto")',
+    sendCommand: "Envoyer commande",
+    brightness: "Luminosite",
+    openDoor: "OPEN",
+    stopDoor: "STOP",
+    closeDoor: "CLOSE",
+    invalidJson: "Valeur JSON invalide",
+    cannotLoadDevices: "Impossible de charger les equipements",
+    noDevicesFound: "Aucun equipement trouve.",
+    noDevicesMatch: "Aucun equipement ne correspond a la recherche.",
+    door: "Porte",
+    doorOpen: "Ouverte",
+    doorClosed: "Fermee",
+    battery: "Batterie",
+  },
+  en: {
+    title: "Tuya Web Control",
+    refreshDevices: "Refresh devices",
+    searchPlaceholder: "Search devices...",
+    showDetails: "Show details",
+    hideDetails: "Hide details",
+    online: "online",
+    offline: "offline",
+    unknownState: "unknown state",
+    unknownCategory: "unknown category",
+    unknownProduct: "unknown product",
+    unknownName: "(unnamed)",
+    idLabel: "ID",
+    labels: "Labels",
+    supportedCodes: "Supported codes",
+    sending: "Sending...",
+    apiError: "API error",
+    cannotLoadCapabilities: "Unable to load device capabilities",
+    statusCurrent: "Current status",
+    unavailable: "unavailable",
+    loading: "Loading...",
+    noCodeDetected: "No code detected for this device.",
+    tuyaCodeLabel: 'Tuya code (e.g. switch_1, bright_value_v2)',
+    jsonValueLabel: 'JSON value (e.g. true, 50, "auto")',
+    sendCommand: "Send command",
+    brightness: "Brightness",
+    openDoor: "OPEN",
+    stopDoor: "STOP",
+    closeDoor: "CLOSE",
+    invalidJson: "Invalid JSON value",
+    cannotLoadDevices: "Unable to load devices",
+    noDevicesFound: "No device found.",
+    noDevicesMatch: "No device matches your search.",
+    door: "Door",
+    doorOpen: "Open",
+    doorClosed: "Closed",
+    battery: "Battery",
+  },
+};
+
+function detectBrowserLang() {
+  const browserLang = String(navigator.language || "en").toLowerCase();
+  return browserLang.startsWith("fr") ? "fr" : "en";
+}
+
+function getQueryLang() {
+  const params = new URLSearchParams(window.location.search);
+  const lang = params.get("lang");
+  return lang === "fr" || lang === "en" ? lang : null;
+}
+
+let currentLang = getQueryLang() || detectBrowserLang();
+let allDevices = [];
+let currentSearchQuery = "";
+
+function t(key) {
+  return I18N[currentLang][key] || I18N.en[key] || key;
+}
+
+function updateStaticTexts() {
+  document.documentElement.lang = currentLang;
+  document.title = t("title");
+  document.querySelector(".top-bar h1").textContent = t("title");
+  document.getElementById("refresh-btn").textContent = t("refreshDevices");
+  document.getElementById("lang-toggle-btn").textContent = currentLang === "fr" ? "EN" : "FR";
+  document.getElementById("device-search").placeholder = t("searchPlaceholder");
+}
+
 function showError(message) {
   const box = document.getElementById("error-box");
   box.textContent = message;
@@ -11,9 +118,9 @@ function clearError() {
 }
 
 function getOnlineTag(device) {
-  if (device.online === true) return "en ligne";
-  if (device.online === false) return "hors ligne";
-  return "etat inconnu";
+  if (device.online === true) return t("online");
+  if (device.online === false) return t("offline");
+  return t("unknownState");
 }
 
 function safeJson(value) {
@@ -91,21 +198,21 @@ function buildFocusedStatusText(mergedValues) {
   function formatFocusedValue(code, value) {
     if (code === "doorcontact_state") {
       if (value === true || value === "true" || value === 1 || value === "1") {
-        return "Porte: Ouverte";
+        return `${t("door")}: ${t("doorOpen")}`;
       }
       if (value === false || value === "false" || value === 0 || value === "0") {
-        return "Porte: Fermee";
+        return `${t("door")}: ${t("doorClosed")}`;
       }
-      return `Porte: ${String(value)}`;
+      return `${t("door")}: ${String(value)}`;
     }
 
     if (code === "battery_percentage") {
       const batteryValue =
         typeof value === "number" ? value : Number.parseFloat(String(value));
       if (Number.isFinite(batteryValue)) {
-        return `Batterie: ${Math.round(batteryValue)}%`;
+        return `${t("battery")}: ${Math.round(batteryValue)}%`;
       }
-      return `Batterie: ${String(value)}`;
+      return `${t("battery")}: ${String(value)}`;
     }
 
     const printable = typeof value === "object" ? safeJson(value) : String(value);
@@ -118,34 +225,34 @@ function buildFocusedStatusText(mergedValues) {
     rows.push(formatFocusedValue(code, value));
   });
 
-  if (rows.length === 0) return "Status actuel: indisponible";
-  return `Status actuel: ${rows.join(" | ")}`;
+  if (rows.length === 0) return `${t("statusCurrent")}: ${t("unavailable")}`;
+  return `${t("statusCurrent")}: ${rows.join(" | ")}`;
 }
 
 function createDetailsBlock(card, device, codes, mergedValues) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "details-btn";
-  button.textContent = "Show details";
+  button.textContent = t("showDetails");
 
   const details = document.createElement("div");
   details.className = "details-block hidden";
 
   const idLine = document.createElement("p");
   idLine.className = "meta";
-  idLine.textContent = `ID: ${device.id}`;
+  idLine.textContent = `${t("idLabel")}: ${device.id}`;
   details.appendChild(idLine);
 
   const labelsLine = document.createElement("p");
   labelsLine.className = "meta";
-  labelsLine.textContent = `Labels: ${getOnlineTag(device)} | ${
-    device.category || "categorie inconnue"
-  } | ${device.product_name || "produit inconnu"}`;
+  labelsLine.textContent = `${t("labels")}: ${getOnlineTag(device)} | ${
+    device.category || t("unknownCategory")
+  } | ${device.product_name || t("unknownProduct")}`;
   details.appendChild(labelsLine);
 
   const codesLine = document.createElement("p");
   codesLine.className = "meta";
-  codesLine.textContent = `Codes supportes: ${codes.map((c) => c.code).join(", ")}`;
+  codesLine.textContent = `${t("supportedCodes")}: ${codes.map((c) => c.code).join(", ")}`;
   details.appendChild(codesLine);
 
   mergedValues.forEach((value, code) => {
@@ -158,7 +265,7 @@ function createDetailsBlock(card, device, codes, mergedValues) {
   button.addEventListener("click", () => {
     const isHidden = details.classList.contains("hidden");
     details.classList.toggle("hidden");
-    button.textContent = isHidden ? "Hide details" : "Show details";
+    button.textContent = isHidden ? t("hideDetails") : t("showDetails");
   });
 
   card.appendChild(button);
@@ -166,7 +273,7 @@ function createDetailsBlock(card, device, codes, mergedValues) {
 }
 
 async function sendCommands(deviceId, commands, outputEl) {
-  outputEl.textContent = "Envoi...";
+  outputEl.textContent = t("sending");
   const response = await fetch(`/api/devices/${deviceId}/commands`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -174,7 +281,7 @@ async function sendCommands(deviceId, commands, outputEl) {
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.detail || "Erreur API");
+    throw new Error(data.detail || t("apiError"));
   }
   outputEl.textContent = safeJson(data);
 }
@@ -183,7 +290,7 @@ async function loadCapabilities(deviceId) {
   const response = await fetch(`/api/devices/${deviceId}/capabilities`);
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.detail || "Impossible de charger les capacites du device");
+    throw new Error(data.detail || t("cannotLoadCapabilities"));
   }
   return data;
 }
@@ -193,12 +300,12 @@ function createDeviceCard(device) {
   card.className = "device-card";
 
   const title = document.createElement("h3");
-  title.textContent = device.name || "(sans nom)";
+  title.textContent = device.name || t("unknownName");
   card.appendChild(title);
 
   const statusSummary = document.createElement("p");
   statusSummary.className = "meta status-summary";
-  statusSummary.textContent = "Status actuel: chargement...";
+  statusSummary.textContent = `${t("statusCurrent")}: ${t("loading")}`;
   card.appendChild(statusSummary);
   let mergedValues = new Map();
 
@@ -221,11 +328,11 @@ function createDeviceCard(device) {
   const form = document.createElement("form");
   form.className = "cmd-form";
   form.innerHTML = `
-    <label>Code Tuya (ex: switch_1, bright_value_v2)</label>
+    <label>${t("tuyaCodeLabel")}</label>
     <input type="text" name="code" required />
-    <label>Valeur JSON (ex: true, 50, "auto")</label>
+    <label>${t("jsonValueLabel")}</label>
     <textarea name="value" required>true</textarea>
-    <button type="submit">Envoyer commande</button>
+    <button type="submit">${t("sendCommand")}</button>
     <pre class="result"></pre>
   `;
   card.appendChild(form);
@@ -233,7 +340,7 @@ function createDeviceCard(device) {
   const result = form.querySelector(".result");
   const loading = document.createElement("p");
   loading.className = "meta";
-  loading.textContent = "Chargement...";
+  loading.textContent = t("loading");
   card.appendChild(loading);
 
   loadCapabilities(device.id)
@@ -247,7 +354,7 @@ function createDeviceCard(device) {
       const propertyCodes = codeSet(props);
 
       if (codes.length === 0) {
-        loading.textContent = "Aucun code detecte pour ce device.";
+        loading.textContent = t("noCodeDetected");
         return;
       }
       loading.remove();
@@ -296,7 +403,7 @@ function createDeviceCard(device) {
             getCapabilityValue(ledBrightCode, statusItems, props, device, 500)
           ) || 500;
         sliderWrap.innerHTML = `
-          <label>Brightness (${ledBrightCode}): <span class="slider-value">${brightnessValue}</span></label>
+          <label>${t("brightness")} (${ledBrightCode}): <span class="slider-value">${brightnessValue}</span></label>
           <input class="brightness-slider" type="range" min="0" max="1000" step="1" value="${brightnessValue}" />
         `;
         quick.appendChild(sliderWrap);
@@ -378,12 +485,12 @@ function createDeviceCard(device) {
       const hasControlEnum = codes.some((c) => c.code === "control");
       if (hasControlEnum) {
         const openBtn = document.createElement("button");
-        openBtn.textContent = "OPEN";
+        openBtn.textContent = t("openDoor");
         const stopBtn = document.createElement("button");
-        stopBtn.textContent = "STOP";
+        stopBtn.textContent = t("stopDoor");
         stopBtn.classList.add("btn-stop");
         const closeBtn = document.createElement("button");
-        closeBtn.textContent = "CLOSE";
+        closeBtn.textContent = t("closeDoor");
 
         quick.appendChild(openBtn);
         quick.appendChild(stopBtn);
@@ -459,7 +566,7 @@ function createDeviceCard(device) {
       }
     })
     .catch((e) => {
-      statusSummary.textContent = `Status actuel: indisponible (${e.message})`;
+      statusSummary.textContent = `${t("statusCurrent")}: ${t("unavailable")} (${e.message})`;
       loading.remove();
     });
 
@@ -473,7 +580,7 @@ function createDeviceCard(device) {
     try {
       parsedValue = JSON.parse(rawValue);
     } catch (_e) {
-      result.textContent = "Valeur JSON invalide";
+      result.textContent = t("invalidJson");
       return;
     }
 
@@ -491,25 +598,65 @@ function createDeviceCard(device) {
 
 async function loadDevices() {
   clearError();
-  const container = document.getElementById("devices");
-  container.innerHTML = "";
-
   try {
     const response = await fetch("/api/devices");
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.detail || "Impossible de charger les equipements");
+      throw new Error(data.detail || t("cannotLoadDevices"));
     }
-    const devices = data.devices || [];
-    if (devices.length === 0) {
-      container.textContent = "Aucun equipement trouve.";
-      return;
-    }
-    devices.forEach((device) => container.appendChild(createDeviceCard(device)));
+    allDevices = data.devices || [];
+    renderFilteredDevices();
   } catch (error) {
     showError(error.message);
   }
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function renderFilteredDevices() {
+  const container = document.getElementById("devices");
+  container.innerHTML = "";
+
+  if (allDevices.length === 0) {
+    container.textContent = t("noDevicesFound");
+    return;
+  }
+
+  const normalizedQuery = normalizeText(currentSearchQuery.trim());
+  const filtered = normalizedQuery
+    ? allDevices.filter((device) => normalizeText(device.name).includes(normalizedQuery))
+    : allDevices;
+
+  if (filtered.length === 0) {
+    container.textContent = t("noDevicesMatch");
+    return;
+  }
+
+  filtered.forEach((device) => container.appendChild(createDeviceCard(device)));
+}
+
+function toggleLang() {
+  const nextLang = currentLang === "fr" ? "en" : "fr";
+  const params = new URLSearchParams(window.location.search);
+  params.set("lang", nextLang);
+  const nextSearch = params.toString();
+  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`;
+  window.history.replaceState({}, "", nextUrl);
+  currentLang = nextLang;
+  updateStaticTexts();
+  renderFilteredDevices();
+}
+
+document.getElementById("device-search").addEventListener("input", (event) => {
+  currentSearchQuery = event.target.value || "";
+  renderFilteredDevices();
+});
 document.getElementById("refresh-btn").addEventListener("click", loadDevices);
+document.getElementById("lang-toggle-btn").addEventListener("click", toggleLang);
+updateStaticTexts();
 loadDevices();

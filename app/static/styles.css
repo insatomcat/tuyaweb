@@ -41,6 +41,30 @@ h1 {
   transform: translateX(-50%);
 }
 
+#lang-toggle-btn {
+  background: #3b556f;
+}
+
+#lang-toggle-btn:hover {
+  background: #2f455c;
+}
+
+#device-search {
+  width: 180px;
+  max-width: 28vw;
+  border: 1px solid #c5ced8;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: #1d252d;
+  background: #ffffff;
+}
+
+#device-search::placeholder {
+  color: #6b7682;
+}
+
 button {
   border: 0;
   background: #0b5fff;

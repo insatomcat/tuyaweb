@@ -1,19 +1,19 @@
-# Tuya Web Control (Smart Life depuis PC)
+# Tuya Web Control (Smart Life from PC)
 
-Application web Python pour lister et controler les equipements d'un compte Tuya/Smart Life.
+Python web app to list and control devices from a Tuya/Smart Life account.
 
-## Ce que fait l'app
+## What the app does
 
-- Liste tous les equipements du compte (via API Cloud Tuya)
-- Affiche l'etat (`status`) de chaque equipement
-- Permet d'envoyer des commandes:
-  - boutons rapides `switch_1` ON/OFF
-  - formulaire libre `code + value(JSON)` pour tous les autres cas
+- Lists all account devices (via Tuya Cloud API)
+- Shows each device state (`status`)
+- Lets you send commands:
+  - quick `switch_1` ON/OFF buttons
+  - free-form `code + value (JSON)` form for all other use cases
 
-## Prerequis
+## Prerequisites
 
 - Python 3.10+
-- Un projet sur Tuya IoT Platform avec:
+- A project on Tuya IoT Platform with:
   - `Client ID` (API Key)
   - `Client Secret`
   - region (`eu`, `us`, `cn`, `in`)
@@ -32,7 +32,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edite `.env`:
+Edit `.env`:
 
 ```env
 TUYA_API_REGION=eu
@@ -43,57 +43,57 @@ APP_HOST=127.0.0.1
 APP_PORT=8000
 ```
 
-`TUYA_API_DEVICE_ID` est optionnel, mais utile pour certains comptes/projets.
+`TUYA_API_DEVICE_ID` is optional, but useful for some accounts/projects.
 
-## Lancer l'application
+## Run the application
 
 ```bash
 source .venv/bin/activate
 python -m app.main
 ```
 
-Puis ouvrir:
+Then open:
 
 - http://127.0.0.1:8000
 
 ## Docker
 
-Build de l'image:
+Build the image:
 
 ```bash
-docker build -t tuya-web-control .
+docker build -t tuyaweb .
 ```
 
-Lancer le conteneur avec ton `.env` local:
+Run the container with your local `.env`:
 
 ```bash
-docker run --rm -p 8000:8000 --env-file .env tuya-web-control
+docker run --rm -p 8000:8000 --env-file .env tuyaweb
 ```
 
-Puis ouvrir:
+Then open:
 
 - http://127.0.0.1:8000
 
-Optionnel: si tu veux changer le port expose cote host:
+Optional: if you want to change the host-exposed port:
 
 ```bash
 docker run --rm -p 8080:8000 --env-file .env tuya-web-control
 ```
 
-## Login/password Smart Life: possible?
+## Smart Life login/password: is it possible?
 
-Partiellement et de maniere non fiable. Les endpoints de login direct sont non officiels et peuvent casser.
+Partially and not reliably. Direct login endpoints are unofficial and may break.
 
-Un script de tentative est fourni:
+A bootstrap attempt script is provided:
 
 ```bash
 source .venv/bin/activate
-python scripts/login_password_bootstrap.py --region eu --username "email@exemple.com" --password "motdepasse"
+python scripts/login_password_bootstrap.py --region eu --username "email@example.com" --password "password"
 ```
 
-Si ca ne marche pas, utilise la methode recommandee: `Client ID` + `Client Secret`.
+If this does not work, use the recommended method: `Client ID` + `Client Secret`.
 
-## Securite
+## Security
 
-- `.env` est ignore par git (non tracke)
-- Ne commit jamais tes secrets
+- `.env` is ignored by git (not tracked)
+- Never commit your secrets
