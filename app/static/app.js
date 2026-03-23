@@ -96,6 +96,7 @@ let currentLang = getQueryLang() || detectBrowserLang();
 let allDevices = [];
 let currentSearchQuery = "";
 let renderedDeviceCards = [];
+const capabilitiesCache = new Map();
 let detailsUnlocked = false;
 let konamiProgress = 0;
 const detailsButtons = [];
@@ -332,16 +333,25 @@ async function sendCommands(deviceId, commands) {
   return data;
 }
 
-async function loadCapabilities(deviceId) {
+async function loadCapabilities(deviceId, options = {}) {
+  const { force = false, cacheOnly = false } = options;
+  if (!force && capabilitiesCache.has(deviceId)) {
+    return capabilitiesCache.get(deviceId);
+  }
+  if (cacheOnly) {
+    throw new Error("Capabilities not cached yet");
+  }
   const response = await fetch(`/api/devices/${deviceId}/capabilities`);
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.detail || t("cannotLoadCapabilities"));
   }
+  capabilitiesCache.set(deviceId, data);
   return data;
 }
 
-function createDeviceCard(device) {
+function createDeviceCard(device, options = {}) {
+  const { cacheOnly = false } = options;
   const card = document.createElement("article");
   card.className = "device-card";
 
@@ -394,7 +404,7 @@ function createDeviceCard(device) {
   async function syncStatusFromDevice() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      const capabilities = await loadCapabilities(device.id);
+      const capabilities = await loadCapabilities(device.id, { force: true });
       const props = normalizeResult(capabilities.properties);
       const statusItems = normalizeResult(capabilities.status);
       mergedValues = buildMergedValues(statusItems, props);
@@ -455,7 +465,7 @@ function createDeviceCard(device) {
     return form;
   }
 
-  loadCapabilities(device.id)
+  loadCapabilities(device.id, { cacheOnly })
     .then((capabilities) => {
       const codes = extractCodes(capabilities);
       const funcs = normalizeResult(capabilities.functions);
@@ -680,6 +690,7 @@ async function loadDevices() {
       throw new Error(data.detail || t("cannotLoadDevices"));
     }
     allDevices = data.devices || [];
+    capabilitiesCache.clear();
     const container = document.getElementById("devices");
     container.innerHTML = "";
     renderedDeviceCards = allDevices.map((device) => {
@@ -741,6 +752,19 @@ function renderFilteredDevices() {
   }
 }
 
+function rerenderDeviceCards(options = {}) {
+  const { cacheOnly = false } = options;
+  const container = document.getElementById("devices");
+  if (!container) return;
+  container.innerHTML = "";
+  renderedDeviceCards = allDevices.map((device) => {
+    const card = createDeviceCard(device, { cacheOnly });
+    container.appendChild(card);
+    return { device, card };
+  });
+  renderFilteredDevices();
+}
+
 function toggleLang() {
   const nextLang = currentLang === "fr" ? "en" : "fr";
   const params = new URLSearchParams(window.location.search);
@@ -750,7 +774,7 @@ function toggleLang() {
   window.history.replaceState({}, "", nextUrl);
   currentLang = nextLang;
   updateStaticTexts();
-  renderFilteredDevices();
+  rerenderDeviceCards({ cacheOnly: true });
 }
 
 document.getElementById("device-search").addEventListener("input", (event) => {
