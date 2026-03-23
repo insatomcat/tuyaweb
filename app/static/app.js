@@ -391,6 +391,25 @@ function createDeviceCard(device) {
     }, durationMs);
   }
 
+  async function syncStatusFromDevice() {
+    try {
+      const capabilities = await loadCapabilities(device.id);
+      const props = normalizeResult(capabilities.properties);
+      const statusItems = normalizeResult(capabilities.status);
+      mergedValues = buildMergedValues(statusItems, props);
+      refreshStatusSummary();
+    } catch (_e) {
+      // Keep optimistic local state if sync fails.
+    }
+  }
+
+  async function runCommands(commands) {
+    await sendCommands(device.id, commands);
+    applyCommandsToLocalState(commands);
+    flashFeedback(t("ok"));
+    await syncStatusFromDevice();
+  }
+
   let form = null;
   const loading = document.createElement("p");
   loading.className = "meta";
@@ -426,9 +445,7 @@ function createDeviceCard(device) {
 
       try {
         const commands = [{ code, value: parsedValue }];
-        await sendCommands(device.id, commands);
-        flashFeedback(t("ok"));
-        applyCommandsToLocalState(commands);
+        await runCommands(commands);
       } catch (e) {
         flashFeedback(t("ko"), true, 1400);
       }
@@ -504,9 +521,7 @@ function createDeviceCard(device) {
         onBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: ledSwitchCode, value: true }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -515,9 +530,7 @@ function createDeviceCard(device) {
         offBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: ledSwitchCode, value: false }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -531,9 +544,7 @@ function createDeviceCard(device) {
         slider.addEventListener("change", async () => {
           try {
             const commands = [{ code: ledBrightCode, value: Number(slider.value) }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -556,9 +567,7 @@ function createDeviceCard(device) {
         onBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "switch_1", value: true }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -567,9 +576,7 @@ function createDeviceCard(device) {
         offBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "switch_1", value: false }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -594,9 +601,7 @@ function createDeviceCard(device) {
         openBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "control", value: "open" }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -605,9 +610,7 @@ function createDeviceCard(device) {
         stopBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "control", value: "stop" }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -616,9 +619,7 @@ function createDeviceCard(device) {
         closeBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "control", value: "close" }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -645,9 +646,7 @@ function createDeviceCard(device) {
         onBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: switchCode, value: true }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
@@ -656,9 +655,7 @@ function createDeviceCard(device) {
         offBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: switchCode, value: false }];
-            await sendCommands(device.id, commands);
-            flashFeedback(t("ok"));
-            applyCommandsToLocalState(commands);
+            await runCommands(commands);
           } catch (e) {
             flashFeedback(t("ko"), true, 1400);
           }
