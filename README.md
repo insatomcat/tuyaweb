@@ -56,6 +56,30 @@ Puis ouvrir:
 
 - http://127.0.0.1:8000
 
+## Docker
+
+Build de l'image:
+
+```bash
+docker build -t tuya-web-control .
+```
+
+Lancer le conteneur avec ton `.env` local:
+
+```bash
+docker run --rm -p 8000:8000 --env-file .env tuya-web-control
+```
+
+Puis ouvrir:
+
+- http://127.0.0.1:8000
+
+Optionnel: si tu veux changer le port expose cote host:
+
+```bash
+docker run --rm -p 8080:8000 --env-file .env tuya-web-control
+```
+
 ## Login/password Smart Life: possible?
 
 Partiellement et de maniere non fiable. Les endpoints de login direct sont non officiels et peuvent casser.
