@@ -24,6 +24,8 @@ const I18N = {
     tuyaCodeLabel: 'Code Tuya (ex: switch_1, bright_value_v2)',
     jsonValueLabel: 'Valeur JSON (ex: true, 50, "auto")',
     sendCommand: "Envoyer commande",
+    ok: "OK",
+    ko: "Erreur",
     brightness: "Luminosite",
     openDoor: "OPEN",
     stopDoor: "STOP",
@@ -62,6 +64,8 @@ const I18N = {
     tuyaCodeLabel: 'Tuya code (e.g. switch_1, bright_value_v2)',
     jsonValueLabel: 'JSON value (e.g. true, 50, "auto")',
     sendCommand: "Send command",
+    ok: "OK",
+    ko: "Error",
     brightness: "Brightness",
     openDoor: "OPEN",
     stopDoor: "STOP",
@@ -92,6 +96,21 @@ let currentLang = getQueryLang() || detectBrowserLang();
 let allDevices = [];
 let currentSearchQuery = "";
 let renderedDeviceCards = [];
+let detailsUnlocked = false;
+let konamiProgress = 0;
+const detailsButtons = [];
+const KONAMI_CODE = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+];
 
 function t(key) {
   return I18N[currentLang][key] || I18N.en[key] || key;
@@ -235,6 +254,10 @@ function createDetailsBlock(card, device, codes, mergedValues) {
   button.type = "button";
   button.className = "details-btn";
   button.textContent = t("showDetails");
+  if (!detailsUnlocked) {
+    button.classList.add("hidden");
+  }
+  detailsButtons.push(button);
 
   const details = document.createElement("div");
   details.className = "details-block hidden";
@@ -273,8 +296,30 @@ function createDetailsBlock(card, device, codes, mergedValues) {
   card.appendChild(details);
 }
 
-async function sendCommands(deviceId, commands, outputEl) {
-  outputEl.textContent = t("sending");
+function revealDetailsButtons() {
+  if (detailsUnlocked) return;
+  detailsUnlocked = true;
+  detailsButtons.forEach((button) => button.classList.remove("hidden"));
+}
+
+function handleKonamiKeydown(event) {
+  const key = String(event.key || "");
+  const normalizedKey = key.length === 1 ? key.toLowerCase() : key;
+  const expected = KONAMI_CODE[konamiProgress];
+
+  if (normalizedKey === expected) {
+    konamiProgress += 1;
+    if (konamiProgress === KONAMI_CODE.length) {
+      revealDetailsButtons();
+      konamiProgress = 0;
+    }
+    return;
+  }
+
+  konamiProgress = normalizedKey === KONAMI_CODE[0] ? 1 : 0;
+}
+
+async function sendCommands(deviceId, commands) {
   const response = await fetch(`/api/devices/${deviceId}/commands`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -284,7 +329,7 @@ async function sendCommands(deviceId, commands, outputEl) {
   if (!response.ok) {
     throw new Error(data.detail || t("apiError"));
   }
-  outputEl.textContent = safeJson(data);
+  return data;
 }
 
 async function loadCapabilities(deviceId) {
@@ -300,9 +345,15 @@ function createDeviceCard(device) {
   const card = document.createElement("article");
   card.className = "device-card";
 
+  const titleRow = document.createElement("div");
+  titleRow.className = "device-title-row";
   const title = document.createElement("h3");
   title.textContent = device.name || t("unknownName");
-  card.appendChild(title);
+  const feedback = document.createElement("span");
+  feedback.className = "cmd-feedback";
+  titleRow.appendChild(title);
+  titleRow.appendChild(feedback);
+  card.appendChild(titleRow);
 
   const statusSummary = document.createElement("p");
   statusSummary.className = "meta status-summary";
@@ -326,9 +377,19 @@ function createDeviceCard(device) {
   quick.className = "quick-actions";
   card.appendChild(quick);
 
-  const result = document.createElement("pre");
-  result.className = "result";
-  card.appendChild(result);
+  let feedbackTimer = null;
+
+  function flashFeedback(label, isError = false, durationMs = 1000) {
+    if (feedbackTimer) clearTimeout(feedbackTimer);
+    feedback.textContent = label;
+    feedback.classList.toggle("error", isError);
+    feedback.classList.add("visible");
+    feedbackTimer = setTimeout(() => {
+      feedback.classList.remove("visible");
+      feedback.classList.remove("error");
+      feedback.textContent = "";
+    }, durationMs);
+  }
 
   let form = null;
   const loading = document.createElement("p");
@@ -347,7 +408,7 @@ function createDeviceCard(device) {
       <textarea name="value" required>true</textarea>
       <button type="submit">${t("sendCommand")}</button>
     `;
-    card.insertBefore(form, result);
+    card.appendChild(form);
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -359,16 +420,17 @@ function createDeviceCard(device) {
       try {
         parsedValue = JSON.parse(rawValue);
       } catch (_e) {
-        result.textContent = t("invalidJson");
+        flashFeedback(t("invalidJson"), true, 1400);
         return;
       }
 
       try {
         const commands = [{ code, value: parsedValue }];
-        await sendCommands(device.id, commands, result);
+        await sendCommands(device.id, commands);
+        flashFeedback(t("ok"));
         applyCommandsToLocalState(commands);
       } catch (e) {
-        result.textContent = e.message;
+        flashFeedback(t("ko"), true, 1400);
       }
     });
 
@@ -442,20 +504,22 @@ function createDeviceCard(device) {
         onBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: ledSwitchCode, value: true }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
 
         offBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: ledSwitchCode, value: false }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
 
@@ -467,10 +531,11 @@ function createDeviceCard(device) {
         slider.addEventListener("change", async () => {
           try {
             const commands = [{ code: ledBrightCode, value: Number(slider.value) }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
         return;
@@ -491,20 +556,22 @@ function createDeviceCard(device) {
         onBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "switch_1", value: true }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
 
         offBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "switch_1", value: false }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
         return;
@@ -527,30 +594,33 @@ function createDeviceCard(device) {
         openBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "control", value: "open" }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
 
         stopBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "control", value: "stop" }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
 
         closeBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: "control", value: "close" }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
         return;
@@ -575,20 +645,22 @@ function createDeviceCard(device) {
         onBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: switchCode, value: true }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
 
         offBtn.addEventListener("click", async () => {
           try {
             const commands = [{ code: switchCode, value: false }];
-            await sendCommands(device.id, commands, result);
+            await sendCommands(device.id, commands);
+            flashFeedback(t("ok"));
             applyCommandsToLocalState(commands);
           } catch (e) {
-            result.textContent = e.message;
+            flashFeedback(t("ko"), true, 1400);
           }
         });
       }
@@ -689,6 +761,7 @@ document.getElementById("device-search").addEventListener("input", (event) => {
 });
 document.getElementById("refresh-btn").addEventListener("click", loadDevices);
 document.getElementById("lang-toggle-btn").addEventListener("click", toggleLang);
+document.addEventListener("keydown", handleKonamiKeydown);
 updateStaticTexts();
 document.getElementById("device-search").focus();
 loadDevices();
